@@ -1,5 +1,5 @@
-package com.example.biometricauth
+package com.example.biometric_auth // Sesuaikan dengan nama package kamu
 
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 
-class MainActivity : FlutterActivity()
+class MainActivity : FlutterFragmentActivity()
