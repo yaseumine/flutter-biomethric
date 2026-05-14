@@ -1,37 +1,58 @@
 import 'package:local_auth/local_auth.dart';
-import 'package:local_auth_platform_interface/types/error_codes.dart'
-    as auth_error;
+import 'package:local_auth_android/local_auth_android.dart';
+import 'biometric_exception.dart';
 
-enum BiometricErrorCode {
-  noBiometricHardware,
-  notEnrolled,
-  temporaryLockout,
-  biometricLockout,
-  userCanceled,
-  systemCanceled,
-  unknown,
-}
+class BiometricService {
+  final LocalAuthentication _auth = LocalAuthentication();
 
-class BiometricException implements Exception {
-  final BiometricErrorCode code;
-  final String message;
-  final String userMessage;
+  Future<bool> isBiometricAvailable() async {
+    final bool canCheck = await _auth.canCheckBiometrics;
+    final bool isSupported = await _auth.isDeviceSupported();
+    return canCheck && isSupported;
+  }
 
-  BiometricException({
-    required this.code,
-    this.message = '',
-    required this.userMessage,
-  });
+  Future<List<BiometricType>> getAvailableBiometrics() async {
+    return await _auth.getAvailableBiometrics();
+  }
 
-  // Computed getters — keputusan UI
-  bool get isRetryable =>
-      code == BiometricErrorCode.userCanceled ||
-      code == BiometricErrorCode.systemCanceled ||
-      code == BiometricErrorCode.unknown;
+  Future<bool> authenticate({String reason = 'Verifikasi dibutuhkan'}) async {
+    final bool available = await isBiometricAvailable();
+    if (!available) {
+      throw BiometricException(
+        code: BiometricErrorCode.noBiometricHardware,
+        userMessage: 'Perangkat tidak memiliki sensor biometrik.',
+      );
+    }
 
-  bool get requiresSettings => code == BiometricErrorCode.notEnrolled;
+    final List<BiometricType> types = await getAvailableBiometrics();
+    if (types.isEmpty) {
+      throw BiometricException(
+        code: BiometricErrorCode.notEnrolled,
+        userMessage: 'Belum ada sidik jari tersimpan. Daftarkan di Pengaturan.',
+      );
+    }
 
-  bool get requiresFallback =>
-      code == BiometricErrorCode.noBiometricHardware ||
-      code == BiometricErrorCode.biometricLockout;
+    final bool result = await _auth.authenticate(
+      localizedReason: reason,
+      authMessages: const <AuthMessages>[
+        AndroidAuthMessages(
+          signInTitle: 'Verifikasi Diperlukan',
+          cancelButton: 'Batal',
+          signInHint: 'Tempelkan jari atau arahkan wajah',
+        ),
+      ],
+      // Ubah bagian ini agar sesuai dengan dokumen:
+      biometricOnly: false, //
+      sensitiveTransaction: true, // [cite: 78]
+      persistAcrossBackgrounding: true, // [cite: 78]
+    );
+
+    if (!result) {
+      throw BiometricException(
+        code: BiometricErrorCode.userCanceled,
+        userMessage: 'Dibatalkan',
+      );
+    }
+    return true;
+  }
 }

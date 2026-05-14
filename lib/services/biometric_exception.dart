@@ -1,6 +1,4 @@
-import 'package:local_auth/local_auth.dart';
-import 'package:local_auth_platform_interface/types/error_codes.dart'
-    as auth_error;
+import 'package:flutter/services.dart';
 
 enum BiometricErrorCode {
   noBiometricHardware,
